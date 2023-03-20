@@ -16,6 +16,13 @@ float p = 3.14159265358979323846;
 long lastTime;
 long lastInterval;
 
+// Setting Up BLE Service 
+BLEService gyroscopeService("91bad492-b950-4226-aa2b-4ede9fa42f59");
+
+// BLE Characteristics
+BLEUnsignedCharCharacteristic complementaryRollValuesChar("cba1d466-344c-4be3-ab3f-189f80dd7518", BLERead | BLENotify);
+BLEUnsignedCharCharacteristic complementaryPitchValuesChar("cba1d467-344c-4be3-ab3f-189f80dd7518", BLERead | BLENotify);
+
 /**
    Read accel and gyro data.
    returns true if value is 'new' and false if IMU is returning old cached data
@@ -113,6 +120,29 @@ void printCalculations() {
   Serial.println("");
 }
 
+void notifyCalculations() {
+
+  BLEDevice central = BLE.central();
+
+    if(central){
+    Serial.print("Connected to central");
+    Serial.print(central.address());
+    digitalWrite(LED_BUILTIN, HIGH);
+
+    while (central.connected()){
+      Serial.print(complementaryRoll);
+      Serial.print(',');
+      Serial.println(complementaryPitch);
+
+      complementaryRollValuesChar.writeValue(complementaryRoll);
+      complementaryPitchValuesChar.writeValue(complementaryPitch);
+    }
+  }
+    digitalWrite(LED_BUILTIN, LOW);
+    Serial.print("Disconnected from central.");
+    Serial.println(central.address());
+  }
+
 void setup() {
 
   Serial.begin(1000000);
@@ -122,6 +152,7 @@ void setup() {
   // this could be 'serial monitor', 'serial plotter' or 'processing.org P3D client' (see ./processing/RollPitchYaw3d.pde file)
   while (!Serial);
 
+  // Gyroscope
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
     while (1);
@@ -131,17 +162,35 @@ void setup() {
 
   lastTime = micros();
 
+  // Bluetooth Low Energy
+  if (!BLE.begin()){
+Serial.print("Starting BLE failed!");
+
+while(1);
+  }
+
+  BLE.setLocalName("LSM6DS3_Service");
+  BLE.setAdvertisedService(gyroscopeService);
+  gyroscopeService.addCharacteristic(complementaryRollValuesChar);
+  gyroscopeService.addCharacteristic(complementaryPitchValuesChar);
+  BLE.addService(gyroscopeService);
+
+  BLE.advertise();
+  Serial.println("De Bluetooth device is active, waiting for connections...");
+
 }
 
 void loop() {
 
+  
   if (readIMU()) {
     long currentTime = micros();
     lastInterval = currentTime - lastTime; // expecting this to be ~104Hz +- 4%
     lastTime = currentTime;
 
     doCalculations();
-    printCalculations();
+    //printCalculations();
+    notifyCalculations();
 
   }
 
