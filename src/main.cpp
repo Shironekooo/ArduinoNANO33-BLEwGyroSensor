@@ -1,14 +1,9 @@
-/**
-   What is this file?
-   This is an arduino example that calculates accurate roll,pitch,yaw from raw gyro/accelerometer data
-   It has a calibration stage which removes most of the gyro drift and a complementary filter
-   that combines gyro and accelerometer angles to produce roll/pitch angles that don't drift (like the gyro angle) and aren't noisy
-   (like the accel angles). As there is no magnetic compass on the nano iot 33, it's not possible to 'complement' the yaw
-   - hence yaw will drift and is 'relative'.
-*/
+#include <Arduino.h>
 #include <Arduino_LSM6DS3.h>
+#include <ArduinoBLE.h>
 #include <Wire.h>
 
+// GLOBAL VARIABLES //
 float accelX,            accelY,             accelZ,            // units m/s/s i.e. accelZ if often 9.8 (gravity)
       gyroX,             gyroY,              gyroZ,             // units dps (degrees per second)
       gyroDriftX,        gyroDriftY,         gyroDriftZ,        // units dps
@@ -21,6 +16,10 @@ float p = 3.14159265358979323846;
 long lastTime;
 long lastInterval;
 
+/**
+   Read accel and gyro data.
+   returns true if value is 'new' and false if IMU is returning old cached data
+*/
 bool readIMU() {
   if (IMU.accelerationAvailable() && IMU.gyroscopeAvailable() ) {
     IMU.readAcceleration(accelX, accelY, accelZ);
@@ -30,7 +29,10 @@ bool readIMU() {
   return false;
 }
 
-
+/*
+  the gyro's x,y,z values drift by a steady amount. if we measure this when arduino is still
+  we can correct the drift when doing real measurements later
+*/
 void calibrateIMU(int delayMillis, int calibrationMillis) {
 
   int calibrationCount = 0;
@@ -59,11 +61,6 @@ void calibrateIMU(int delayMillis, int calibrationMillis) {
   gyroDriftZ = sumZ / calibrationCount;
 
 }
-
-/**
-   Read accel and gyro data.
-   returns true if value is 'new' and false if IMU is returning old cached data
-*/
 
 void doCalculations() {
   accRoll = atan2(accelY, accelZ) * 180 / p;
@@ -136,12 +133,6 @@ void setup() {
 
 }
 
-/*
-  the gyro's x,y,z values drift by a steady amount. if we measure this when arduino is still
-  we can correct the drift when doing real measurements later
-*/
-
-// the loop function runs over and over again forever
 void loop() {
 
   if (readIMU()) {
@@ -155,8 +146,3 @@ void loop() {
   }
 
 }
-
-/**
-   I'm expecting, over time, the Arduino_LSM6DS3.h will add functions to do most of this,
-   but as of 1.0.0 this was missing.
-*/
